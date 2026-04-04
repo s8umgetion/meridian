@@ -475,6 +475,10 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
             PreToolUse: [{
               matcher: "",  // Match ALL tools
               hooks: [async (input: any) => {
+                const serverSideTools = ["WebSearch", "WebFetch"]
+                if (serverSideTools.includes(input.tool_name)) {
+                  return { decision: "allow" as const }
+                }
                 capturedToolUses.push({
                   id: input.tool_use_id,
                   name: stripMcpPrefix(input.tool_name),

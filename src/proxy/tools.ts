@@ -13,7 +13,7 @@
 export const BLOCKED_BUILTIN_TOOLS = [
   "Read", "Write", "Edit", "MultiEdit",
   "Bash", "Glob", "Grep", "NotebookEdit",
-  "WebFetch", "WebSearch", "TodoWrite"
+  "TodoWrite"
 ]
 
 /**
@@ -43,7 +43,6 @@ export const CLAUDE_CODE_ONLY_TOOLS = [
   "Agent",             // OpenCode: delegate_task / task
   "TaskOutput",        // OpenCode: background_output
   "TaskStop",          // OpenCode: background_cancel
-  "WebSearch",         // OpenCode: websearch_web_search_exa
 ]
 
 /** MCP server name used by the calling agent */
