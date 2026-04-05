@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.27.2](https://github.com/rynfar/meridian/compare/v1.27.1...v1.27.2) (2026-04-05)
+
+
+### Bug Fixes
+
+* respect client stream parameter in passthrough adapter ([#254](https://github.com/rynfar/meridian/issues/254)) ([1ec2abb](https://github.com/rynfar/meridian/commit/1ec2abbc0f6196fda79ba6ce631e5829e06d0b7e))
+
+## [1.27.1](https://github.com/rynfar/meridian/compare/v1.27.0...v1.27.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* default sonnet to 200k — sonnet[1m] requires Extra Usage on Max ([#255](https://github.com/rynfar/meridian/issues/255)) ([e629d6c](https://github.com/rynfar/meridian/commit/e629d6cbbdcf2716a7379c33c242b2d51d2eedd3))
+* OpenCode auto-detection, adapter telemetry, pi adapter improvements ([13bd6cd](https://github.com/rynfar/meridian/commit/13bd6cd792282fdd575e7fc92bf72fbe2ee547f9))
+* strip thinking blocks and suppress Turn 2 prose in passthrough mode ([1a98fe0](https://github.com/rynfar/meridian/commit/1a98fe05975ef22e37d2266b7dd111881b8e6fb3))
+
 ## [1.27.0](https://github.com/rynfar/meridian/compare/v1.26.6...v1.27.0) (2026-04-04)
 
 
