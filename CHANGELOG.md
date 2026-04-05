@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.27.6](https://github.com/rynfar/meridian/compare/v1.27.5...v1.27.6) (2026-04-05)
+
+
+### Bug Fixes
+
+* support running as root (Docker, Unraid, NAS) ([#256](https://github.com/rynfar/meridian/issues/256)) ([7dd0599](https://github.com/rynfar/meridian/commit/7dd0599e919295e467e7cab28d1716da5fb46dc1))
+
+## [1.27.5](https://github.com/rynfar/meridian/compare/v1.27.4...v1.27.5) (2026-04-05)
+
+
+### Bug Fixes
+
+* replace global claude-code install with SDK cli.js shim in Dockerfile ([5391f14](https://github.com/rynfar/meridian/commit/5391f140bfb9262da2b387d841ffb0b5384627f7))
+
+## [1.27.4](https://github.com/rynfar/meridian/compare/v1.27.3...v1.27.4) (2026-04-05)
+
+
+### Bug Fixes
+
+* add path parameter fallback in OpenCode file change tracking ([#253](https://github.com/rynfar/meridian/issues/253)) ([959a84e](https://github.com/rynfar/meridian/commit/959a84e9cfdb12a6bb47c752a468c6983fe20042))
+
+## [1.27.3](https://github.com/rynfar/meridian/compare/v1.27.2...v1.27.3) (2026-04-05)
+
+
+### Bug Fixes
+
+* use envBool() for passthrough detection — Boolean('0') was truthy ([#261](https://github.com/rynfar/meridian/issues/261)) ([41d37da](https://github.com/rynfar/meridian/commit/41d37da234f5282020b2bc9915fef3ec453cff8d))
+
 ## [1.27.2](https://github.com/rynfar/meridian/compare/v1.27.1...v1.27.2) (2026-04-05)
 
 
