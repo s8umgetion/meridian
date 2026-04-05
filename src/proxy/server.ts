@@ -81,16 +81,16 @@ function buildFreshPrompt(
       } else {
         let text: string
         if (typeof m.content === "string") {
-          text = `[Assistant: ${m.content}]`
+          text = `<|assistant_msg|>${m.content}<|/assistant_msg|>`
         } else if (Array.isArray(m.content)) {
           text = m.content.map((b: any) => {
-            if (b.type === "text" && b.text) return `[Assistant: ${b.text}]`
-            if (b.type === "tool_use") return `[Tool Use: ${b.name}(${JSON.stringify(b.input)})]`
-            if (b.type === "tool_result") return `[Tool Result: ${typeof b.content === "string" ? b.content : JSON.stringify(b.content)}]`
+            if (b.type === "text" && b.text) return `<|assistant_msg|>${b.text}<|/assistant_msg|>`
+            if (b.type === "tool_use") return `<|tool_call|>${b.name}: ${JSON.stringify(b.input)}<|/tool_call|>`
+            if (b.type === "tool_result") return `<|tool_output|>${typeof b.content === "string" ? b.content : JSON.stringify(b.content)}<|/tool_output|>`
             return ""
           }).filter(Boolean).join("\n")
         } else {
-          text = `[Assistant: ${String(m.content)}]`
+          text = `<|assistant_msg|>${String(m.content)}<|/assistant_msg|>`
         }
         structured.push({
           type: "user" as const,
@@ -112,8 +112,8 @@ function buildFreshPrompt(
         content = m.content
           .map((block: any) => {
             if (block.type === "text" && block.text) return block.text
-            if (block.type === "tool_use") return `[Tool Use: ${block.name}(${JSON.stringify(block.input)})]`
-            if (block.type === "tool_result") return `[Tool Result for ${block.tool_use_id}: ${typeof block.content === "string" ? block.content : JSON.stringify(block.content)}]`
+            if (block.type === "tool_use") return `<|tool_call|>${block.name}: ${JSON.stringify(block.input)}<|/tool_call|>`
+            if (block.type === "tool_result") return `<|tool_output|>${typeof block.content === "string" ? block.content : JSON.stringify(block.content)}<|/tool_output|>`
             if (block.type === "image") return "[Image attached]"
             if (block.type === "document") return "[Document attached]"
             if (block.type === "file") return "[File attached]"
@@ -385,16 +385,16 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
               // Convert assistant messages to text summaries
               let text: string
               if (typeof m.content === "string") {
-                text = `[Assistant: ${m.content}]`
+                text = `<|assistant_msg|>${m.content}<|/assistant_msg|>`
               } else if (Array.isArray(m.content)) {
                 text = m.content.map((b: any) => {
-                  if (b.type === "text" && b.text) return `[Assistant: ${b.text}]`
-                  if (b.type === "tool_use") return `[Tool Use: ${b.name}(${JSON.stringify(b.input)})]`
-                  if (b.type === "tool_result") return `[Tool Result: ${typeof b.content === "string" ? b.content : JSON.stringify(b.content)}]`
+                  if (b.type === "text" && b.text) return `<|assistant_msg|>${b.text}<|/assistant_msg|>`
+                  if (b.type === "tool_use") return `<|tool_call|>${b.name}: ${JSON.stringify(b.input)}<|/tool_call|>`
+                  if (b.type === "tool_result") return `<|tool_output|>${typeof b.content === "string" ? b.content : JSON.stringify(b.content)}<|/tool_output|>`
                   return ""
                 }).filter(Boolean).join("\n")
               } else {
-                text = `[Assistant: ${String(m.content)}]`
+                text = `<|assistant_msg|>${String(m.content)}<|/assistant_msg|>`
               }
               structuredMessages.push({
                 type: "user" as const,
@@ -416,8 +416,8 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
               content = m.content
                 .map((block: any) => {
                   if (block.type === "text" && block.text) return block.text
-                  if (block.type === "tool_use") return `[Tool Use: ${block.name}(${JSON.stringify(block.input)})]`
-                  if (block.type === "tool_result") return `[Tool Result for ${block.tool_use_id}: ${typeof block.content === "string" ? block.content : JSON.stringify(block.content)}]`
+                  if (block.type === "tool_use") return `<|tool_call|>${block.name}: ${JSON.stringify(block.input)}<|/tool_call|>`
+                  if (block.type === "tool_result") return `<|tool_output|>${typeof block.content === "string" ? block.content : JSON.stringify(block.content)}<|/tool_output|>`
                   if (block.type === "image") return "[Image attached]"
                   if (block.type === "document") return "[Document attached]"
                   if (block.type === "file") return "[File attached]"
