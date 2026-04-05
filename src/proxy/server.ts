@@ -844,7 +844,7 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
             content: contentBlocks,
             model: body.model,
             stop_reason: stopReason,
-            usage: { input_tokens: 0, output_tokens: 0 }
+            usage: lastUsage ?? { input_tokens: 0, output_tokens: 0 }
           }), {
             headers: {
               "Content-Type": "application/json",
@@ -1269,7 +1269,7 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
                     `event: message_delta\ndata: ${JSON.stringify({
                       type: "message_delta",
                       delta: { stop_reason: "tool_use", stop_sequence: null },
-                      usage: { output_tokens: 0 }
+                      usage: { output_tokens: lastUsage?.output_tokens ?? 0 }
                     })}\n\n`
                   ), "passthrough_message_delta")
                 }
@@ -1410,7 +1410,7 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
                   `event: message_delta\ndata: ${JSON.stringify({
                     type: "message_delta",
                     delta: { stop_reason: "end_turn", stop_sequence: null },
-                    usage: { output_tokens: 0 }
+                    usage: { output_tokens: lastUsage?.output_tokens ?? 0 }
                   })}\n\n`
                 ), "error_message_delta")
                 safeEnqueue(encoder.encode(
