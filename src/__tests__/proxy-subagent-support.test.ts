@@ -22,6 +22,7 @@ import {
   makeRequest,
   makeToolResultRequest,
   parseSSE,
+  collectPromptText,
 } from "./helpers"
 
 // --- Capture SDK calls ---
@@ -186,10 +187,11 @@ describe("Phase 3: Tool result in follow-up requests", () => {
 
     const prompt = capturedQueryParams.prompt
     // Should contain the tool use context
-    expect(prompt).toContain("Read")
-    expect(prompt).toContain("test.ts")
+    const promptText = await collectPromptText(prompt)
+    expect(promptText).toContain("Read")
+    expect(promptText).toContain("test.ts")
     // Should contain the tool result
-    expect(prompt).toContain("console.log('hello')")
+    expect(promptText).toContain("console.log('hello')")
   })
 
   it("should handle multiple tool results in a single message", async () => {
@@ -221,8 +223,9 @@ describe("Phase 3: Tool result in follow-up requests", () => {
     await response.json()
 
     const prompt = capturedQueryParams.prompt
-    expect(prompt).toContain("file a contents")
-    expect(prompt).toContain("file b contents")
+    const promptText = await collectPromptText(prompt)
+    expect(promptText).toContain("file a contents")
+    expect(promptText).toContain("file b contents")
   })
 
   it("should handle error tool results", async () => {
@@ -252,8 +255,9 @@ describe("Phase 3: Tool result in follow-up requests", () => {
     await response.json()
 
     const prompt = capturedQueryParams.prompt
-    expect(prompt).toContain("Unknown agent type")
-    expect(prompt).toContain("general-purpose")
+    const promptText = await collectPromptText(prompt)
+    expect(promptText).toContain("Unknown agent type")
+    expect(promptText).toContain("general-purpose")
   })
 })
 

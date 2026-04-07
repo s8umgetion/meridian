@@ -19,7 +19,7 @@ describe("tool configuration", () => {
     expect(CLAUDE_CODE_ONLY_TOOLS).toContain("TodoWrite")
     expect(CLAUDE_CODE_ONLY_TOOLS).toContain("AskUserQuestion")
     expect(CLAUDE_CODE_ONLY_TOOLS).toContain("Agent")
-    expect(CLAUDE_CODE_ONLY_TOOLS).toContain("WebSearch")
+    // WebSearch unblocked — SDK built-in search is now available to all clients
   })
 
   it("CLAUDE_CODE_ONLY_TOOLS contains SDK-only tools", () => {

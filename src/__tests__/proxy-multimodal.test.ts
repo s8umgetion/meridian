@@ -62,7 +62,7 @@ describe("Multimodal content", () => {
     clearSessionCache()
   })
 
-  it("should use text prompt for text-only messages", async () => {
+  it("should use structured prompt for text-only messages", async () => {
     const app = createTestApp()
     await (await post(app, {
       model: "claude-sonnet-4-5",
@@ -71,7 +71,8 @@ describe("Multimodal content", () => {
       messages: [{ role: "user", content: "hello" }],
     })).json()
 
-    expect(typeof capturedQueryParams.prompt).toBe("string")
+    // All prompts now use structured messages (AsyncIterable) to prevent role confusion
+    expect(typeof capturedQueryParams.prompt).not.toBe("string")
   })
 
   it("should use structured prompt for image content", async () => {
@@ -224,7 +225,7 @@ describe("Multimodal content", () => {
     expect(hasSystemMsg).toBe(false)
   })
 
-  it("should fall back to text prompt with image placeholder when no multimodal", async () => {
+  it("should use structured prompt even for text-only array content", async () => {
     const app = createTestApp()
     await (await post(app, {
       model: "claude-sonnet-4-5",
@@ -233,7 +234,17 @@ describe("Multimodal content", () => {
       messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
     })).json()
 
-    expect(typeof capturedQueryParams.prompt).toBe("string")
-    expect(capturedQueryParams.prompt).toContain("hello")
+    // All prompts now use structured messages (AsyncIterable)
+    expect(typeof capturedQueryParams.prompt).not.toBe("string")
+    // Verify the content is preserved in the structured message
+    const messages: any[] = []
+    for await (const msg of capturedQueryParams.prompt) messages.push(msg)
+    const textContent = messages.map((m: any) => {
+      const c = m?.message?.content
+      if (typeof c === "string") return c
+      if (Array.isArray(c)) return c.map((b: any) => b.text || "").join("")
+      return ""
+    }).join("\n")
+    expect(textContent).toContain("hello")
   })
 })

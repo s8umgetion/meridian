@@ -19,8 +19,8 @@ import {
   blockStop,
   messageDelta,
   messageStop,
+  collectPromptText,
 } from "./helpers"
-
 // --- Capture SDK calls ---
 let mockMessages: any[] = []
 let capturedQueryParams: any = null
@@ -313,8 +313,9 @@ describe("Session resume: only send last user message on resume", () => {
     }, { "x-opencode-session": "oc-resume-test" })).json()
 
     // The prompt should only contain the last user message, not the full history
-    expect(capturedQueryParams.prompt).toContain("Second message - this is the new one")
-    expect(capturedQueryParams.prompt).not.toContain("First message")
+    const promptText = await collectPromptText(capturedQueryParams.prompt)
+    expect(promptText).toContain("Second message - this is the new one")
+    expect(promptText).not.toContain("First message")
   })
 
   it("should resume in streaming mode too", async () => {
@@ -351,8 +352,9 @@ describe("Session resume: only send last user message on resume", () => {
 
     await readStreamFull(r2)
     expect(capturedQueryParams.options.resume).toBe(MOCK_SDK_SESSION)
-    expect(capturedQueryParams.prompt).toContain("Continue please")
-    expect(capturedQueryParams.prompt).not.toContain("Start conversation")
+    const promptText2 = await collectPromptText(capturedQueryParams.prompt)
+    expect(promptText2).toContain("Continue please")
+    expect(promptText2).not.toContain("Start conversation")
   })
 
   it("should send full history on first request (no resume)", async () => {
@@ -370,8 +372,9 @@ describe("Session resume: only send last user message on resume", () => {
     }, { "x-opencode-session": "oc-new-session" })).json()
 
     // No resume — should include full history
-    expect(capturedQueryParams.prompt).toContain("First message")
-    expect(capturedQueryParams.prompt).toContain("Second message")
+    const promptText3 = await collectPromptText(capturedQueryParams.prompt)
+    expect(promptText3).toContain("First message")
+    expect(promptText3).toContain("Second message")
     expect(capturedQueryParams.options.resume).toBeUndefined()
   })
 })

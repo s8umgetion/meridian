@@ -185,6 +185,32 @@ export function parseSSE(text: string): Array<{ event: string; data: Record<stri
   return events
 }
 
+// --- Prompt Helpers ---
+
+/**
+ * Collect a prompt value (string or AsyncIterable) into a single string.
+ * Structured SDK messages are serialized so tests can use .toContain() assertions.
+ * Works with both the old text-prompt path and the new structured-message path.
+ */
+export async function collectPromptText(prompt: string | AsyncIterable<any>): Promise<string> {
+  if (typeof prompt === "string") return prompt
+  const parts: string[] = []
+  for await (const msg of prompt) {
+    const content = msg?.message?.content
+    if (typeof content === "string") {
+      parts.push(content)
+    } else if (Array.isArray(content)) {
+      for (const block of content) {
+        if (block.type === "text" && block.text) parts.push(block.text)
+        else parts.push(JSON.stringify(block))
+      }
+    } else if (content !== undefined) {
+      parts.push(String(content))
+    }
+  }
+  return parts.join("\n")
+}
+
 // --- Anthropic Tool Definitions ---
 
 export const READ_TOOL = {

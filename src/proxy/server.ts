@@ -60,76 +60,73 @@ const exec = promisify(execCallback)
 let claudeExecutable = ""
 
 /**
+ * Convert assistant content to XML-delimited text summary.
+ * Shared by both the main prompt builder and the stale-session retry path.
+ * Uses XML tags to prevent Claude from confusing history text with role markers.
+ */
+function formatAssistantContentForPrompt(content: any): string {
+  if (typeof content === "string") {
+    return `<previous_assistant_response>${content}</previous_assistant_response>`
+  }
+  if (Array.isArray(content)) {
+    const parts = content.map((b: any) => {
+      if (b.type === "text" && b.text) return `<previous_assistant_response>${b.text}</previous_assistant_response>`
+      if (b.type === "tool_use") return `<previous_tool_call tool="${b.name}">${JSON.stringify(b.input)}</previous_tool_call>`
+      if (b.type === "tool_result") {
+        const inner = typeof b.content === "string" ? b.content : JSON.stringify(b.content)
+        return `<previous_tool_result id="${b.tool_use_id}">${inner}</previous_tool_result>`
+      }
+      if (b.type === "image") return `<previous_attachment type="image" />`
+      if (b.type === "document") return `<previous_attachment type="document" />`
+      if (b.type === "file") return `<previous_attachment type="file" />`
+      return ""
+    }).filter(Boolean)
+    return parts.join("\n")
+  }
+  return `<previous_assistant_response>${String(content)}</previous_assistant_response>`
+}
+
+/**
  * Build a prompt from all messages for a fresh (non-resume) session.
  * Used when retrying after a stale session UUID error.
+ * Always returns structured messages (AsyncIterable) to avoid role confusion.
  */
 function buildFreshPrompt(
   messages: Array<{ role: string; content: any }>,
   stripCacheControl: (content: any) => any
-): string | AsyncIterable<any> {
-  const MULTIMODAL_TYPES = new Set(["image", "document", "file"])
-  const hasMultimodal = messages.some((m) =>
-    Array.isArray(m.content) && m.content.some((b: any) => MULTIMODAL_TYPES.has(b.type))
-  )
-
-  if (hasMultimodal) {
-    const structured: Array<{ type: "user"; message: { role: string; content: any }; parent_tool_use_id: null }> = []
-    for (const m of messages) {
-      if (m.role === "user") {
-        structured.push({
-          type: "user" as const,
-          message: { role: "user" as const, content: stripCacheControl(m.content) },
-          parent_tool_use_id: null,
-        })
-      } else {
-        let text: string
-        if (typeof m.content === "string") {
-          text = `[Assistant: ${m.content}]`
-        } else if (Array.isArray(m.content)) {
-          text = m.content.map((b: any) => {
-            if (b.type === "text" && b.text) return `[Assistant: ${b.text}]`
-            if (b.type === "tool_use") return `[Tool Use: ${b.name}(${JSON.stringify(b.input)})]`
-            if (b.type === "tool_result") return `[Tool Result: ${typeof b.content === "string" ? b.content : JSON.stringify(b.content)}]`
-            return ""
-          }).filter(Boolean).join("\n")
-        } else {
-          text = `[Assistant: ${String(m.content)}]`
-        }
-        structured.push({
-          type: "user" as const,
-          message: { role: "user" as const, content: text },
-          parent_tool_use_id: null,
-        })
-      }
+): AsyncIterable<any> {
+  const structured: Array<{ type: "user"; message: { role: string; content: any }; parent_tool_use_id: null }> = []
+  for (const m of messages) {
+    if (m.role === "user") {
+      structured.push({
+        type: "user" as const,
+        message: { role: "user" as const, content: stripCacheControl(m.content) },
+        parent_tool_use_id: null,
+      })
+    } else {
+      structured.push({
+        type: "user" as const,
+        message: { role: "user" as const, content: formatAssistantContentForPrompt(m.content) },
+        parent_tool_use_id: null,
+      })
     }
-    return (async function* () { for (const msg of structured) yield msg })()
   }
+  return (async function* () { for (const msg of structured) yield msg })()
+}
 
-  return messages
-    .map((m) => {
-      const role = m.role === "assistant" ? "Assistant" : "Human"
-      let content: string
-      if (typeof m.content === "string") {
-        content = m.content
-      } else if (Array.isArray(m.content)) {
-        content = m.content
-          .map((block: any) => {
-            if (block.type === "text" && block.text) return block.text
-            if (block.type === "tool_use") return `[Tool Use: ${block.name}(${JSON.stringify(block.input)})]`
-            if (block.type === "tool_result") return `[Tool Result for ${block.tool_use_id}: ${typeof block.content === "string" ? block.content : JSON.stringify(block.content)}]`
-            if (block.type === "image") return "[Image attached]"
-            if (block.type === "document") return "[Document attached]"
-            if (block.type === "file") return "[File attached]"
-            return ""
-          })
-          .filter(Boolean)
-          .join("\n")
-      } else {
-        content = String(m.content)
-      }
-      return `${role}: ${content}`
-    })
-    .join("\n\n") || ""
+/**
+ * Accumulate token usage counters by summing values rather than overwriting.
+ * Fixes billing accuracy: intermediate SDK turns no longer lose their usage.
+ */
+function accumulateUsage(existing: TokenUsage | undefined, incoming: TokenUsage | undefined): TokenUsage {
+  if (!incoming) return existing ?? {}
+  if (!existing) return { ...incoming }
+  return {
+    input_tokens: (existing.input_tokens ?? 0) + (incoming.input_tokens ?? 0),
+    output_tokens: (existing.output_tokens ?? 0) + (incoming.output_tokens ?? 0),
+    cache_read_input_tokens: (existing.cache_read_input_tokens ?? 0) + (incoming.cache_read_input_tokens ?? 0),
+    cache_creation_input_tokens: (existing.cache_creation_input_tokens ?? 0) + (incoming.cache_creation_input_tokens ?? 0),
+  }
 }
 
 function logUsage(requestId: string, usage: TokenUsage): void {
@@ -384,12 +381,6 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
         messagesToConvert = allMessages
       }
 
-      // Check if any messages contain multimodal content (images, documents, files)
-      const MULTIMODAL_TYPES = new Set(["image", "document", "file"])
-      const hasMultimodal = messagesToConvert?.some((m: any) =>
-        Array.isArray(m.content) && m.content.some((b: any) => MULTIMODAL_TYPES.has(b.type))
-      )
-
       // Strip cache_control from content blocks — the SDK manages its own caching
       // and OpenCode's ttl='1h' blocks conflict with the SDK's ttl='5m' blocks
       function stripCacheControl(content: any): any {
@@ -403,96 +394,56 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
         })
       }
 
-      // Build the prompt — either structured (multimodal) or text.
-      // Structured prompts are stored as arrays so they can be replayed on retry.
-      let structuredMessages: Array<{ type: "user"; message: { role: string; content: any }; parent_tool_use_id: null }> | undefined
-      let textPrompt: string | undefined
+      // --- Structured message construction (unified path) ---
+      // Always use structured SDK messages (AsyncIterable) instead of flat text.
+      // This prevents the model from confusing text markers like "Human:"/"Assistant:"
+      // with actual role boundaries, which caused hallucinated tool calls in long
+      // multi-turn conversations. See: https://github.com/rynfar/meridian/issues/XXX
+      //
+      // Assistant messages are wrapped in XML tags to clearly separate them from
+      // user content. The SDK only accepts type:"user" messages in the input stream,
+      // so assistant history is embedded as text inside user messages.
+      const structuredMessages: Array<{ type: "user"; message: { role: string; content: any }; parent_tool_use_id: null }> = []
 
-      if (hasMultimodal) {
-        // Structured messages preserve image/document/file blocks for Claude to see.
-        // On resume, only send user messages (SDK has assistant context already).
-        // On first request, include everything.
-        structuredMessages = []
+      // formatAssistantContent — delegate to the shared top-level function
+      const formatAssistantContent = formatAssistantContentForPrompt
 
-        if (isResume) {
-          // Resume: only send user messages from the delta (SDK has the rest)
-          for (const m of messagesToConvert) {
-            if (m.role === "user") {
-              structuredMessages.push({
-                type: "user" as const,
-                message: { role: "user" as const, content: stripCacheControl(m.content) },
-                parent_tool_use_id: null,
-              })
-            }
-          }
-        } else {
-          // First request: all messages (system context now passed via appendSystemPrompt)
-          for (const m of messagesToConvert) {
-            if (m.role === "user") {
-              structuredMessages.push({
-                type: "user" as const,
-                message: { role: "user" as const, content: stripCacheControl(m.content) },
-                parent_tool_use_id: null,
-              })
-            } else {
-              // Convert assistant messages to text summaries
-              let text: string
-              if (typeof m.content === "string") {
-                text = `[Assistant: ${m.content}]`
-              } else if (Array.isArray(m.content)) {
-                text = m.content.map((b: any) => {
-                  if (b.type === "text" && b.text) return `[Assistant: ${b.text}]`
-                  if (b.type === "tool_use") return `[Tool Use: ${b.name}(${JSON.stringify(b.input)})]`
-                  if (b.type === "tool_result") return `[Tool Result: ${typeof b.content === "string" ? b.content : JSON.stringify(b.content)}]`
-                  return ""
-                }).filter(Boolean).join("\n")
-              } else {
-                text = `[Assistant: ${String(m.content)}]`
-              }
-              structuredMessages.push({
-                type: "user" as const,
-                message: { role: "user" as const, content: text },
-                parent_tool_use_id: null,
-              })
-            }
+      if (isResume) {
+        // Resume: only send user messages from the delta (SDK has the rest)
+        for (const m of messagesToConvert) {
+          if (m.role === "user") {
+            structuredMessages.push({
+              type: "user" as const,
+              message: { role: "user" as const, content: stripCacheControl(m.content) },
+              parent_tool_use_id: null,
+            })
           }
         }
       } else {
-        // Text prompt — convert messages to string
-        textPrompt = messagesToConvert
-          ?.map((m: { role: string; content: string | Array<{ type: string; text?: string; content?: string; tool_use_id?: string; name?: string; input?: unknown; id?: string }> }) => {
-            const role = m.role === "assistant" ? "Assistant" : "Human"
-            let content: string
-            if (typeof m.content === "string") {
-              content = m.content
-            } else if (Array.isArray(m.content)) {
-              content = m.content
-                .map((block: any) => {
-                  if (block.type === "text" && block.text) return block.text
-                  if (block.type === "tool_use") return `[Tool Use: ${block.name}(${JSON.stringify(block.input)})]`
-                  if (block.type === "tool_result") return `[Tool Result for ${block.tool_use_id}: ${typeof block.content === "string" ? block.content : JSON.stringify(block.content)}]`
-                  if (block.type === "image") return "[Image attached]"
-                  if (block.type === "document") return "[Document attached]"
-                  if (block.type === "file") return "[File attached]"
-                  return ""
-                })
-                .filter(Boolean)
-                .join("\n")
-            } else {
-              content = String(m.content)
-            }
-            return `${role}: ${content}`
-          })
-          .join("\n\n") || ""
+        // New conversation: send all messages as structured input
+        for (const m of messagesToConvert) {
+          if (m.role === "user") {
+            structuredMessages.push({
+              type: "user" as const,
+              message: { role: "user" as const, content: stripCacheControl(m.content) },
+              parent_tool_use_id: null,
+            })
+          } else {
+            // Embed assistant history as XML-tagged text inside a user message
+            const text = formatAssistantContent(m.content)
+            structuredMessages.push({
+              type: "user" as const,
+              message: { role: "user" as const, content: text },
+              parent_tool_use_id: null,
+            })
+          }
+        }
       }
 
       // Create a fresh prompt value — can be called multiple times for retry
       function makePrompt(): string | AsyncIterable<any> {
-        if (structuredMessages) {
-          const msgs = structuredMessages
-          return (async function* () { for (const msg of msgs) yield msg })()
-        }
-        return textPrompt!
+        const msgs = structuredMessages
+        return (async function* () { for (const msg of msgs) yield msg })()
       }
 
       // --- Passthrough mode ---
@@ -771,7 +722,7 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
                 }
                 // Capture token usage from the assistant message
                 const msgUsage = message.message.usage as TokenUsage | undefined
-                if (msgUsage) lastUsage = { ...lastUsage, ...msgUsage }
+                if (msgUsage) lastUsage = accumulateUsage(lastUsage, msgUsage)
               }
             }
 
@@ -1135,7 +1086,7 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
                       skipBlockIndices.clear()
                       sdkToClientIndex.clear()
                       const startUsage = (event as unknown as { message?: { usage?: TokenUsage } }).message?.usage
-                      if (startUsage) lastUsage = { ...lastUsage, ...startUsage }
+                      if (startUsage) lastUsage = accumulateUsage(lastUsage, startUsage)
                       // Only emit the first message_start — subsequent ones are internal SDK turns.
                       // In passthrough mode, the second message_start marks Turn 2 beginning
                       // (SDK processed the blocked tool call and Claude is now summarising).
@@ -1219,7 +1170,7 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
                     // (SDK is about to execute MCP tools and continue)
                     if (eventType === "message_delta") {
                       const deltaUsage = (event as unknown as { usage?: TokenUsage }).usage
-                      if (deltaUsage) lastUsage = { ...lastUsage, ...deltaUsage }
+                      if (deltaUsage) lastUsage = accumulateUsage(lastUsage, deltaUsage)
                       const stopReason = (event as any).delta?.stop_reason
                       if (stopReason === "tool_use" && skipBlockIndices.size > 0) {
                         // All tool_use blocks in this turn were MCP — skip this delta

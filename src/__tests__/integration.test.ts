@@ -20,6 +20,7 @@ import {
   messageStop,
   assistantMessage,
   parseSSE,
+  collectPromptText,
 } from "./helpers"
 
 // --- Mock SDK ---
@@ -155,8 +156,9 @@ describe("Integration: Full Anthropic API tool loop", () => {
     expect(body.content[0].text).toContain("meridian")
 
     // Verify the prompt includes the tool result
-    expect(capturedQueryParams.prompt).toContain("meridian")
-    expect(capturedQueryParams.prompt).toContain("1.1.0")
+    const promptText = await collectPromptText(capturedQueryParams.prompt)
+    expect(promptText).toContain("meridian")
+    expect(promptText).toContain("1.1.0")
   })
 
   it("Step 3: Error tool_result → Claude recovers", async () => {
@@ -187,7 +189,7 @@ describe("Integration: Full Anthropic API tool loop", () => {
     // Claude should recover with a new tool call or text
     expect(body.content.length).toBeGreaterThanOrEqual(1)
     // The prompt should contain the error so Claude can learn from it
-    expect(capturedQueryParams.prompt).toContain("Unknown agent type")
+    expect(await collectPromptText(capturedQueryParams.prompt)).toContain("Unknown agent type")
   })
 })
 

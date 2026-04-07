@@ -63,7 +63,7 @@ afterAll(() => {
 const BLOCKED_BUILTIN_TOOLS = [
   "Read", "Write", "Edit", "MultiEdit",
   "Bash", "Glob", "Grep", "NotebookEdit",
-  "WebFetch", "WebSearch", "TodoWrite"
+  "TodoWrite"
 ]
 
 const CLAUDE_CODE_ONLY_TOOLS = [
@@ -78,7 +78,6 @@ const CLAUDE_CODE_ONLY_TOOLS = [
   "Agent",
   "TaskOutput",
   "TaskStop",
-  "WebSearch",
 ]
 
 const ALL_BLOCKED = [...new Set([...BLOCKED_BUILTIN_TOOLS, ...CLAUDE_CODE_ONLY_TOOLS])]

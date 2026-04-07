@@ -24,6 +24,7 @@ import {
   makeRequest,
   makeToolResultRequest,
   parseSSE,
+  collectPromptText,
 } from "./helpers"
 
 // --- Capture SDK calls ---
@@ -186,8 +187,10 @@ describe("Phase 2: Message format preservation", () => {
     })
     // Prompt text should NOT contain the system context (it's in the SDK option now)
     const prompt = capturedQueryParams.prompt
-    expect(typeof prompt).toBe("string")
-    expect(prompt).not.toContain("You are a helpful assistant.")
+    // Prompt is now always AsyncIterable (structured messages)
+    expect(typeof prompt).not.toBe("string")
+    const promptText = await collectPromptText(prompt)
+    expect(promptText).not.toContain("You are a helpful assistant.")
   })
 
   it("should include tool_result content in the prompt sent to SDK", async () => {
@@ -207,6 +210,6 @@ describe("Phase 2: Message format preservation", () => {
 
     // The prompt sent to SDK should include the tool result context
     expect(capturedQueryParams).toBeDefined()
-    expect(capturedQueryParams.prompt).toContain("file contents here")
+    expect(await collectPromptText(capturedQueryParams.prompt)).toContain("file contents here")
   })
 })
